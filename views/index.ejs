@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  </head>
+  <body>
+   
+
+    
+
+    <div class="main">
+
+      <div class="left">
+        <div class="main-videos">
+          <div id="videos">
+            <!-- <video src="" id="myvideo"></video> -->
+          </div>
+        </div>
+        <div class="main-controls">
+          <div class="main-controls-block">
+            <div onclick="muteUnmute()" class="main-controls-button main-mute-button">
+              <i class="fa-solid fa-microphone"></i>
+              <span>Mute</span>
+            </div>
+            <div onclick="playStop()" class="main-controls-button main-video-button">
+              <i class="fa-solid fa-video"></i>
+              <span>Stop Video</span>
+            </div>
+          </div>
+          <div class="main-controls-block">
+            <div class="main-controls-button">
+              <i class="fa-solid fa-shield-halved"></i>
+              <span>Security</span>
+            </div>
+            <div class="main-controls-button">
+              <i class="fas fa-user-friends"></i>
+              <span>Participants</span>
+            </div>
+            <div class="main-controls-button">
+              <i class="fa-solid fa-comment"></i>
+              <span>Chats</span>
+            </div>
+          </div>
+          <div class="main-controls-block">
+            <div class="main-controls-button">
+             
+              <span class="leave-meeting">leave Meeting</span>
+            </div>
+           
+          </div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="main-header">
+          <h6>Chat</h6>
+        </div>
+        <div class="main-chat-window">
+          <ul class="messages">
+          
+          </ul>
+
+       </div>
+       <div class="main-message-container">
+          <input id="chat_message" type="text" placeholder="Type message here...">
+       </div>
+      </div>
+
+
+
+
+
+    </div>
+
+
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js" integrity="sha512-Z6C1p1NIexPj5MsVUunW4pg7uMX6/TT3CUVldmjXx2kpip1eZcrAnxIusDxyFIikyM9A61zOVNgvLr/TGudOQg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      var socket=io()
+      
+    // console.log(`<%=roomId%>`)
+    // const myVideo=document.querySelector('#myvideo');
+      const myVideo=document.createElement('video');
+      myVideo.muted=true;
+
+      const myPeer = new Peer({host:'https://videocallingapp-oln9.onrender.com',secure:true,port:443,path:'/'})
+    var myStream;
+    navigator.mediaDevices.getUserMedia({
+      video:true,
+      audio:true
+    }).then(stream=>{
+      myStream=stream
+      addvideostream(myVideo,stream)
+
+
+      myPeer.on('call',function(call){
+        call.answer(stream)
+        const video=document.createElement('video')
+        call.on('stream',userVideo=>{
+          addvideostream(video,userVideo)
+        })
+      })
+
+
+      socket.on('user-connected',(userId,socketId)=>{
+        console.log(socketId)
+       connectToNewUser(userId,stream)
+    })
+
+    })
+
+    const addvideostream=(video,stream)=>{
+      video.srcObject=stream;
+      video.addEventListener('loadedmetadata',()=>{
+        video.play();
+      })
+      document.querySelector('#videos').append(video)
+
+    }
+
+    // socket .io 
+    const room_Id="<%= roomId%>"
+    myPeer.on('open',id=>{
+      // console.log(id)
+      socket.emit('join-room',room_Id,id)
+    })
+   
+  
+    const connectToNewUser=(userId,stream)=>{
+        const call=myPeer.call(userId,stream);
+        const video=document.createElement('video')
+        call.on('stream',userVideo=>{
+          addvideostream(video,userVideo)
+        })
+    }
+
+    // CHATS--->
+    var input=document.querySelector('#chat_message')
+    var inputText
+
+    input.addEventListener('change',(e)=>{
+      inputText=input.value
+      if(inputText.length!=0){
+        // console.log(inputText)
+      socket.emit('msg',inputText)
+      
+      }
+      input.value=``
+    })
+    socket.on('createMsg',msg=>{
+      console.log(msg) 
+      document.querySelector('.messages').innerHTML+=`<li class='message'><b>User</b><br>${msg}</br></li>`
+      scrollToBotttom()
+    })
+
+    function  scrollToBotttom(){
+      var d=document.querySelector('.message')
+      d.scrollTop=d.scrollHeight
+    }
+
+
+
+    const muteUnmute = () => {
+  const enabled = myStream.getAudioTracks()[0].enabled;
+  if (enabled) {
+    myStream.getAudioTracks()[0].enabled = false;
+    setUnmuteButton();
+  } else {
+    setMuteButton();
+    myStream.getAudioTracks()[0].enabled = true;
+  }
+}
+
+const setMuteButton = () => {
+  const html = `
+    <i class="fas fa-microphone"></i>
+    <span>Mute</span>
+  `
+  document.querySelector('.main-mute-button').innerHTML = html;
+}
+
+const setUnmuteButton = () => {
+  const html = `
+    <i class="unmute fas fa-microphone-slash"></i>
+    <span>Unmute</span>
+  `
+  document.querySelector('.main-mute-button').innerHTML = html;
+}
+
+
+const playStop = () => {
+  // console.log('object')
+  let enabled = myStream.getVideoTracks()[0].enabled;
+  if (enabled) {
+    myStream.getVideoTracks()[0].enabled = false;
+    setPlayVideo()
+  } else {
+    setStopVideo()
+    myStream.getVideoTracks()[0].enabled = true;
+  }
+}
+
+const setStopVideo = () => {
+  const html = `
+    <i class="fas fa-video"></i>
+    <span>Stop Video</span>
+  `
+  document.querySelector('.main-video-button').innerHTML = html;
+}
+
+const setPlayVideo = () => {
+  const html = `
+  <i class="stop fas fa-video-slash"></i>
+    <span>Play Video</span>
+  `
+  document.querySelector('.main-video-button').innerHTML = html;
+}
+
+    </script>
+  </body>
+</html>
